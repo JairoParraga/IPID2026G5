@@ -9,13 +9,8 @@ import matplotlib.pyplot as plt
 # VARIABLES
 # ==========================================
 
-# Imagen original, nunca se modifica
 imagen_original = None
-
-# Imagen que actualmente está a la izquierda
 imagen_actual_array = None
-
-# Imagen procesada que está a la derecha
 imagen_procesada = None
 
 
@@ -42,32 +37,18 @@ def abrir_imagen():
     try:
 
         imagen = Image.open(ruta).convert("RGB")
-
         imagen.thumbnail((500, 400))
-
-        # Convertimos la imagen a NumPy
         imagen_array = np.array(imagen)
-
-        # Guardamos la imagen original
         imagen_original = imagen_array.copy()
-
-        # La imagen actual comienza siendo la original
         imagen_actual_array = imagen_array.copy()
-
-        # Reiniciamos la imagen procesada
         imagen_procesada = None
-
-        # Mostramos la imagen original a la izquierda
         mostrar_imagen_izquierda(imagen_actual_array)
-
-        # Limpiamos la imagen derecha
         imagen_modificada.config(
             image="",
             text="Imagen procesada"
         )
 
     except Exception as error:
-
         messagebox.showerror(
             "Error",
             f"No se pudo abrir la imagen.\n\n{error}"
@@ -81,11 +62,8 @@ def abrir_imagen():
 def mostrar_imagen_izquierda(imagen_array):
 
     imagen_pil = Image.fromarray(imagen_array)
-
     foto = ImageTk.PhotoImage(imagen_pil)
-
     imagen_actual.foto = foto
-
     imagen_actual.config(
         image=foto,
         text=""
@@ -97,9 +75,6 @@ def mostrar_imagen_izquierda(imagen_array):
 # ==========================================
 
 def mostrar_imagen_derecha(imagen_array):
-
-    # Si es una imagen de un solo canal,
-    # la convertimos a uint8
     if imagen_array.ndim == 2:
         imagen_pil = Image.fromarray(
             imagen_array.astype(np.uint8)
@@ -110,9 +85,7 @@ def mostrar_imagen_derecha(imagen_array):
         )
 
     foto = ImageTk.PhotoImage(imagen_pil)
-
     imagen_modificada.foto = foto
-
     imagen_modificada.config(
         image=foto,
         text=""
@@ -137,16 +110,9 @@ def escala_grises():
 
         return
 
-    # Promedio de los canales R, G y B
     gris = imagen_actual_array.mean(axis=2)
-
-    # Convertimos a uint8
     gris = gris.astype(np.uint8)
-
-    # Guardamos el resultado
     imagen_procesada = gris
-
-    # Mostramos el resultado
     mostrar_imagen_derecha(imagen_procesada)
 
 
@@ -166,11 +132,7 @@ def pasar_a_izquierda():
         )
 
         return
-
-    # Copiamos la imagen procesada
     imagen_actual_array = imagen_procesada.copy()
-
-    # Mostramos la imagen a la izquierda
     mostrar_imagen_izquierda(imagen_actual_array)
 
 
@@ -190,11 +152,7 @@ def restaurar():
         )
 
         return
-
-    # Recuperamos la imagen original
     imagen_actual_array = imagen_original.copy()
-
-    # La mostramos a la izquierda
     mostrar_imagen_izquierda(imagen_actual_array)
 
 
@@ -261,11 +219,7 @@ def mostrar_histograma():
         )
 
         return
-
-    # Creamos una nueva ventana de Matplotlib
     plt.figure("Histograma")
-
-    # Verificamos si es una imagen RGB
     if imagen_actual_array.ndim == 3:
 
         # Histograma del canal rojo
@@ -301,8 +255,6 @@ def mostrar_histograma():
         plt.legend()
 
     else:
-
-        # Histograma de una imagen en escala de grises
         plt.hist(
             imagen_actual_array.ravel(),
             bins=256,
@@ -317,6 +269,52 @@ def mostrar_histograma():
     plt.grid()
     plt.show()
 
+# ==========================================
+# CANALES RGB
+# ==========================================
+def canal_rojo():
+    global imagen_procesada
+    if imagen_actual_array is None:
+        messagebox.showwarning(
+            "Advertencia",
+            "Primero debes abrir una imagen."
+        )
+        return
+
+    canal_r = np.zeros_like(imagen_actual_array)
+    canal_r[:, :, 0] = imagen_actual_array[:, :, 0]
+    imagen_procesada = canal_r  
+
+    mostrar_imagen_derecha(canal_r)
+
+def canal_verde():
+    global imagen_procesada
+    if imagen_actual_array is None:
+        messagebox.showwarning(
+            "Advertencia",
+            "Primero debes abrir una imagen."
+        )
+        return
+
+    canal_g = np.zeros_like(imagen_actual_array)
+    canal_g[:, :, 1] = imagen_actual_array[:, :, 1]
+    imagen_procesada = canal_g      
+    mostrar_imagen_derecha(canal_g)
+
+def canal_azul():
+    global imagen_procesada
+    if imagen_actual_array is None:
+        messagebox.showwarning(
+            "Advertencia",
+            "Primero debes abrir una imagen."
+        )
+        return
+
+    canal_b = np.zeros_like(imagen_actual_array)
+    canal_b[:, :, 2] = imagen_actual_array[:, :, 2]
+    imagen_procesada = canal_b
+
+    mostrar_imagen_derecha(canal_b)
 
 # ==========================================
 # VENTANA PRINCIPAL
@@ -475,6 +473,41 @@ boton_histograma.pack(
     side="left"
 )
 
+# Canal Rojo
+boton_canal_rojo = tk.Button(
+    contenedor_opciones,
+    text="Canal Rojo",
+    command=canal_rojo
+)
+boton_canal_rojo.pack(
+    padx=10,
+    pady=2,
+    side="left"
+)
+
+# Canal Grenn
+boton_canal_verde = tk.Button(
+    contenedor_opciones,
+    text="Canal Verde",
+    command=canal_verde
+)
+boton_canal_verde.pack(
+    padx=10,
+    pady=2,
+    side="left"
+)
+# Canal Blue
+boton_canal_azul = tk.Button(
+    contenedor_opciones,
+    text="Canal Azul",
+    command=canal_azul
+)
+boton_canal_azul.pack(
+    padx=10,
+    pady=2,
+    side="left"
+)
+
 
 # Guardar
 guardar_imagen = tk.Button(
@@ -488,6 +521,7 @@ guardar_imagen.pack(
     pady=2,
     side="left"
 )
+
 
 
 ventana.mainloop()
