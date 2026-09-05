@@ -64,33 +64,17 @@ def mostrar_imagen_derecha(imagen_array):
         text=""
     )
 
-def restaurar():
-
-    global imagen_actual
-
-    if imagen_original is None:
-
-        messagebox.showwarning(
-            "Advertencia",
-            "Primero debes abrir una imagen."
-        )
-
-        return
-    imagen_actual = imagen_original.copy()
-    mostrar_imagen_izquierda(imagen_actual)
 
 
 # Funciones del programa
-def opcion1():
-    return
-def opcion2():
-    return
-def opcion3():
-    return
 
-def canal_rojo():
-    global imagen_actual, imagen_procesada
+def convertir_a_YIQ():
+    global imagen_actual
 
+    print("convertir_a_YIQ ejecutada")
+    print("imagen_actual =", imagen_actual)
+
+    # Verificar que exista una imagen
     if imagen_actual is None:
         messagebox.showwarning(
             "Advertencia",
@@ -98,16 +82,96 @@ def canal_rojo():
         )
         return
 
-    canal_r = imagen_actual[:, :, 0]
+    # Obtener valores a y b
+    try:
+        a = float(entrada_a.get())
+        b = float(entrada_b.get())
+    except ValueError:
+        messagebox.showerror(
+            "Error",
+            "Los valores a y b deben ser números."
+        )
+        return
 
-    imagen_procesada = canal_r
+    # Matriz YIQ -> RGB
+    matriz_conversion_YIQ_a_RGB = np.array([
+        [1,       0.9663,  0.6210],
+        [1,      -0.2721, -0.6474],
+        [1,      -1.1069,  1.7046]
+    ])
 
+    # Matriz RGB -> YIQ
+    matriz_conversion_RGB_a_YIQ = np.array([
+        [0.299,  0.587,  0.114],
+        [0.596, -0.274, -0.322],
+        [0.211, -0.523,  0.312]
+    ])
+
+    # RGB [0,255] -> RGB [0,1]
+    imagen_rgb = imagen_actual.astype(np.float64) / 255.0
+
+    # RGB -> YIQ
+    imagen_yiq = imagen_rgb @ matriz_conversion_RGB_a_YIQ.T
+
+    # Modificar canales
+    canal_y = imagen_yiq[:, :, 0] * a
+    canal_i = imagen_yiq[:, :, 1] * b
+    canal_q = imagen_yiq[:, :, 2] * b
+
+    # Verificar límites
+    if not np.all(canal_y <= 1):
+        messagebox.showerror(
+            "Error",
+            "El canal Y supera el valor máximo permitido (1)."
+        )
+        return
+
+    if not np.all(
+        (canal_i >= -0.5957) &
+        (canal_i <= 0.5957)
+    ):
+        messagebox.showerror(
+            "Error",
+            "El canal I está fuera del rango permitido."
+        )
+        return
+
+    if not np.all(
+        (canal_q >= -0.5226) &
+        (canal_q <= 0.5226)
+    ):
+        messagebox.showerror(
+            "Error",
+            "El canal Q está fuera del rango permitido."
+        )
+        return
+
+    # Guardar canales modificados
+    imagen_yiq[:, :, 0] = canal_y
+    imagen_yiq[:, :, 1] = canal_i
+    imagen_yiq[:, :, 2] = canal_q
+
+    # YIQ -> RGB
+    imagen_rgb_modificada = (
+        imagen_yiq @ matriz_conversion_YIQ_a_RGB.T
+    )
+
+    # Limitar RGB al rango [0,1]
+    imagen_rgb_modificada = np.clip(
+        imagen_rgb_modificada,
+        0,
+        1
+    )
+
+    # RGB [0,1] -> RGB [0,255]
+    imagen_rgb_modificada *= 255
+
+    imagen_procesada = imagen_rgb_modificada.astype(np.uint8)
+
+    # Mostrar resultado
     mostrar_imagen_derecha(imagen_procesada)
-    canal_r = np.zeros_like(imagen_actual)
-    canal_r[:, :, 0] = imagen_actual[:, :, 0]
-    imagen_procesada = canal_r  
 
-    mostrar_imagen_derecha(canal_r)
+     
 
 
 ventana = tk.Tk()
@@ -126,8 +190,7 @@ contenedor_botones.pack(side="bottom", fill="x")
 # Componentes de la cabecera
 abrir_btn = tk.Button(cabecera, text="Abrir Imagen", command=abrir_imagen)
 abrir_btn.pack(side="left", padx=5, pady=5)
-restaurar_btn = tk.Button(cabecera, text="Restaurar Imagen", command=restaurar)
-restaurar_btn.pack(side="left", padx=5, pady=5)
+
 
 # Componentes del contenedor de imagenes
 componente_imagen_actual = tk.Label(contenedor_imagen,text="Imagen Actual",bg="gray")
@@ -136,14 +199,21 @@ componente_imagen_actual.pack(expand=True,fill="both",side="left",padx=5,pady=5)
 componente_imagen_procesada = tk.Label(contenedor_imagen,text="Imagen Procesada",bg="gray")
 componente_imagen_procesada.pack(expand=True,fill="both",side="right",padx=5,pady=5)
 # Componentes del contenedor de botones
-opcion1_btn = tk.Button(contenedor_botones, text="Opcion 1", command=canal_rojo)
-opcion1_btn.pack(side="left", padx=5, pady=5)
 
-opcion2_btn = tk.Button(contenedor_botones, text="Opcion 2", command=opcion2)
+label_a = tk.Label(contenedor_botones, text="Valor a:")
+label_a.pack(side="left", padx=5, pady=5)
+entrada_a = tk.Entry(contenedor_botones)
+entrada_a.pack(side="left", padx=5, pady=5)
+label_b = tk.Label(contenedor_botones, text="Valor b:")
+label_b.pack(side="left", padx=5, pady=5)
+entrada_b = tk.Entry(contenedor_botones)
+entrada_b.pack(side="left", padx=5, pady=5)
+opcion2_btn = tk.Button(contenedor_botones, text="Modificar", command=convertir_a_YIQ)
 opcion2_btn.pack(side="left", padx=5, pady=5)
 
-opcion3_btn = tk.Button(contenedor_botones, text="Opcion 3", command=opcion3)
-opcion3_btn.pack(side="left", padx=5, pady=5)
 
 ventana.mainloop()
+
+
+
 
