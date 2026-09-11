@@ -36,7 +36,54 @@ def abrir_imagen():
             "Error",
             f"No se pudo abrir la imagen.\n\n{error}"
         )    
-       
+#Funcion para guardar la imagen procesada
+def guardar():
+
+    if imagen_procesada is None:
+
+        messagebox.showwarning(
+            "Advertencia",
+            "No hay una imagen procesada para guardar."
+        )
+
+        return
+
+    ruta = filedialog.asksaveasfilename(
+        title="Guardar imagen procesada",
+        defaultextension=".png",
+        filetypes=[
+            ("PNG", "*.png"),
+            ("JPEG", "*.jpg"),
+            ("BMP", "*.bmp"),
+            ("TIFF", "*.tif"),
+
+
+        ]
+    )
+
+    if not ruta:
+        return
+
+    try:
+
+        imagen_pil = Image.fromarray(
+            imagen_procesada
+        )
+
+        imagen_pil.save(ruta)
+
+        messagebox.showinfo(
+            "Guardar",
+            "La imagen se guardó correctamente."
+        )
+
+    except Exception as error:
+
+        messagebox.showerror(
+            "Error",
+            f"No se pudo guardar la imagen.\n\n{error}"
+        )
+
 
 def mostrar_imagen_izquierda(imagen_array):
 
@@ -70,10 +117,7 @@ def mostrar_imagen_derecha(imagen_array):
 
 def convertir_a_YIQ():
     global imagen_actual
-
-    print("convertir_a_YIQ ejecutada")
-    print("imagen_actual =", imagen_actual)
-
+    global imagen_procesada
     # Verificar que exista una imagen
     if imagen_actual is None:
         messagebox.showwarning(
@@ -120,36 +164,32 @@ def convertir_a_YIQ():
 
     # Verificar límites
     if not np.all(canal_y <= 1):
-        messagebox.showerror(
-            "Error",
+        messagebox.showinfo(
+            "Información",
             "El canal Y supera el valor máximo permitido (1)."
         )
-        return
 
     if not np.all(
         (canal_i >= -0.5957) &
         (canal_i <= 0.5957)
     ):
-        messagebox.showerror(
-            "Error",
+        messagebox.showinfo(
+            "Información",
             "El canal I está fuera del rango permitido."
         )
-        return
 
     if not np.all(
         (canal_q >= -0.5226) &
         (canal_q <= 0.5226)
     ):
-        messagebox.showerror(
-            "Error",
+        messagebox.showinfo(
+            "Información",
             "El canal Q está fuera del rango permitido."
         )
-        return
 
-    # Guardar canales modificados
-    imagen_yiq[:, :, 0] = canal_y
-    imagen_yiq[:, :, 1] = canal_i
-    imagen_yiq[:, :, 2] = canal_q
+    imagen_yiq[:,:,0]=np.clip(canal_y,0,1)
+    imagen_yiq[:,:,1]=np.clip(canal_i,-0.5957,0.5957)
+    imagen_yiq[:,:,2]=np.clip(canal_q,-0.5226,0.5226)
 
     # YIQ -> RGB
     imagen_rgb_modificada = (
@@ -191,6 +231,8 @@ contenedor_botones.pack(side="bottom", fill="x")
 abrir_btn = tk.Button(cabecera, text="Abrir Imagen", command=abrir_imagen)
 abrir_btn.pack(side="left", padx=5, pady=5)
 
+guardar_btn = tk.Button(cabecera, text="Guardar Imagen", command=guardar)
+guardar_btn.pack(side="left", padx=5, pady=5)
 
 # Componentes del contenedor de imagenes
 componente_imagen_actual = tk.Label(contenedor_imagen,text="Imagen Actual",bg="gray")
@@ -198,8 +240,9 @@ componente_imagen_actual.pack(expand=True,fill="both",side="left",padx=5,pady=5)
 
 componente_imagen_procesada = tk.Label(contenedor_imagen,text="Imagen Procesada",bg="gray")
 componente_imagen_procesada.pack(expand=True,fill="both",side="right",padx=5,pady=5)
-# Componentes del contenedor de botones
 
+
+# Componentes del contenedor de botones
 label_a = tk.Label(contenedor_botones, text="Valor a:")
 label_a.pack(side="left", padx=5, pady=5)
 entrada_a = tk.Entry(contenedor_botones)
