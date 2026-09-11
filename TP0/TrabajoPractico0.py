@@ -177,7 +177,10 @@ def guardar():
         filetypes=[
             ("PNG", "*.png"),
             ("JPEG", "*.jpg"),
-            ("BMP", "*.bmp")
+            ("BMP", "*.bmp"),
+            ("TIFF", "*.tif"),
+
+
         ]
     )
 
@@ -260,7 +263,6 @@ def mostrar_histograma():
             bins=256,
             range=(0, 256)
         )
-
         plt.title("Histograma de escala de grises")
         plt.xlabel("Intensidad")
         plt.ylabel("Cantidad de píxeles")
