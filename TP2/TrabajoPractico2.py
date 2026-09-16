@@ -7,54 +7,24 @@ import matplotlib.pyplot as plt
 
 img1 = None
 img2 = None
-
+img_resultado = None
+# Funciones para sumar dos imagenes
 def cuasi_suma_RGB_Clampeada(A,B):
-    print("A.shape: ", A.shape)
-    print("B.shape: ", B.shape)
-    #Comprobar si son de la mismsa dimensión
-    if A.shape != B.shape:
-        messagebox.showerror(
-            "Error",
-            f"Las imágenes no son de la misma dimensión.\n\n"
-        )
-        return None
     resultado = A + B
     resultado = np.clip(resultado, 0, 255)
     mostrar_imagen_resultado(resultado)
     
 
 def cuasi_suma_RGB_Promedio(A,B):
-    if A.shape != B.shape:
-        messagebox.showerror(
-            "Error",
-            f"Las imágenes no son de la misma dimensión.\n\n"
-        )
-        return None
     resultado = ((A + B).astype(np.float64))/2
     resultado = resultado.astype(np.uint8)
     mostrar_imagen_resultado(resultado) 
+   
 
-def convertirRGB_YIQ(rgb):
-    matriz_conversion_RGB_a_YIQ = np.array([
-            [0.299,  0.587,  0.114],
-            [0.596, -0.274, -0.322],
-            [0.211, -0.523,  0.312]
-        ])
-    imagen_rgb = rgb.astype(np.float64) / 255.0
-    return (imagen_rgb @ matriz_conversion_RGB_a_YIQ.T)
-
-
-     #Revisar la division 0/0
 def cuasi_suma_YIQ_clampeada(A,B):
-    if A.shape != B.shape:
-        messagebox.showerror(
-            "Error",
-            f"Las imagenes no son de la misma dimensión.\n\n"
-        )
-        return None
     C_YIQ=np.zeros(A.shape)
-    A_YIQ=convertirRGB_YIQ(A)
-    B_YIQ=convertirRGB_YIQ(B)
+    A_YIQ=convertirRGB_YIQ(np.float32(A)/255.0)
+    B_YIQ=convertirRGB_YIQ(np.float32(B)/255.0)
     C_YIQ[:,:,0]=np.clip(A_YIQ[:,:,0]+B_YIQ[:,:,0],0,1)
     C_YIQ[:,:,1]=(A_YIQ[:,:,0]*A_YIQ[:,:,1]+B_YIQ[:,:,0]*B_YIQ[:,:,1])/(A_YIQ[:,:,0]+B_YIQ[:,:,0])
     C_YIQ[:,:,2]=(A_YIQ[:,:,0]*A_YIQ[:,:,2]+B_YIQ[:,:,0]*B_YIQ[:,:,2])/(A_YIQ[:,:,0]+B_YIQ[:,:,0])
@@ -63,66 +33,94 @@ def cuasi_suma_YIQ_clampeada(A,B):
 
 
 def cuasi_suma_YIQ_promedio(A,B):
-    if A.shape != B.shape:
-        messagebox.showerror(
-            "Error",
-            f"Las imagenes no son de la misma dimensión.\n\n"
-        )
-        return None
     C_YIQ=np.zeros(A.shape)
-    A_YIQ=convertirRGB_YIQ(A)
-    B_YIQ=convertirRGB_YIQ(B)
+    A_YIQ=convertirRGB_YIQ(np.float32(A)/255.0)
+    B_YIQ=convertirRGB_YIQ(np.float32(B)/255.0)
     C_YIQ[:,:,0]=(A_YIQ[:,:,0]+B_YIQ[:,:,0])/2
     C_YIQ[:,:,1]=(A_YIQ[:,:,0]*A_YIQ[:,:,1]+B_YIQ[:,:,0]*B_YIQ[:,:,1])/(A_YIQ[:,:,0]+B_YIQ[:,:,0])
     C_YIQ[:,:,2]=(A_YIQ[:,:,0]*A_YIQ[:,:,2]+B_YIQ[:,:,0]*B_YIQ[:,:,2])/(A_YIQ[:,:,0]+B_YIQ[:,:,0])
     mostrar_imagen_resultado(convertir_YIQ_RGB(C_YIQ))
     
 def cuasi_suma_YIQ_if_ligther(A,B):
-    if A.shape != B.shape:
-        messagebox.showerror(
-            "Error",
-            f"Las imagenes no son de la misma dimensión.\n\n"
-        )
-        return None
-    A_YIQ=convertirRGB_YIQ(A)
-    B_YIQ=convertirRGB_YIQ(B)
-    C_YIQ = np.maximum(A_YIQ, B_YIQ)    
+    
+    A_YIQ=convertirRGB_YIQ(np.float32(A)/255.0)
+    B_YIQ=convertirRGB_YIQ(np.float32(B)/255.0)
+    
+    condicion = A_YIQ[:, :, 0] > B_YIQ[:, :, 0]
+    C_YIQ = np.where(condicion[:, :, np.newaxis], A_YIQ, B_YIQ)
+    
     mostrar_imagen_resultado(convertir_YIQ_RGB(C_YIQ))
 
 def cuasi_suma_YIQ_if_darker(A,B):
-    if A.shape != B.shape:
-        messagebox.showerror(
-            "Error",
-            f"Las imagenes no son de la misma dimensión.\n\n"
-        )
-        return None
-    A_YIQ=convertirRGB_YIQ(A)
-    B_YIQ=convertirRGB_YIQ(B)
-    C_YIQ=np.minimum(A_YIQ,B_YIQ)
+    A_YIQ=convertirRGB_YIQ(np.float32(A)/255.0)
+    B_YIQ=convertirRGB_YIQ(np.float32(B)/255.0)
+
+    condicion = A_YIQ[:, :, 0] < B_YIQ[:, :, 0]
+    C_YIQ = np.where(condicion[:, :, np.newaxis], A_YIQ, B_YIQ)
+
     mostrar_imagen_resultado(convertir_YIQ_RGB(C_YIQ))    
 
 # Funciones de restar dos imagenes
 def restar_RGB_absoluta(A,B):
-    if A.shape != B.shape:
-        messagebox.showerror(
-            "Error",
-            f"Las imagenes no son de la misma dimensión.\n\n"
-        )
-        return None
     a=A.astype(np.float64)
     b=B.astype(np.float64)
     resultado = np.abs(a-b)
     resultado = np.uint8(resultado)
     mostrar_imagen_resultado(resultado)
 
+def restar_RGB_promedio(A,B):
+    a = np.float32(A)/255.0
+    b = np.float32(B)/255.0
+
+    resultado = (a - b + 1.0) / 2.0
+
+    resultado = np.clip(resultado, 0, 1)
+
+    resultado = np.uint8(resultado * 255)
+    mostrar_imagen_resultado(resultado)
+
+def restar_RGB_clampeada(A,B): 
+    A = np.float32(A)
+    B = np.float32(B)
+    resultado = A - B
+    resultado = np.clip(resultado,0,255)
+    resultado = np.uint8(resultado)
+    mostrar_imagen_resultado(resultado)    
+
+def restar_YIQ_clampeada(A,B):
+
+    A_YIQ=convertirRGB_YIQ(np.float32(A)/255.0)
+    B_YIQ=convertirRGB_YIQ(np.float32(B)/255.0)
+    C_YIQ = np.zeros_like(A_YIQ)
+    C_Y = A_YIQ[:,:,0] - B_YIQ[:,:,0]
+    C_YIQ[:,:,1] = np.where(C_Y>0,A_YIQ[:,:,1],0)
+    C_YIQ[:,:,2] = np.where(C_Y>0,A_YIQ[:,:,2],0)
+    
+    C_YIQ[:,:,0] = np.clip(C_Y,0,1)
+
+
+    resultado = convertirRGB_YIQ(C_YIQ)
+    mostrar_imagen_resultado(resultado)
+
+def restar_YIQ_promediada(A, B):
+
+    A_YIQ = convertirRGB_YIQ(np.float32(A) / 255.0)
+    B_YIQ = convertirRGB_YIQ(np.float32(B) / 255.0)
+    C_YIQ = np.zeros_like(A_YIQ)
+
+    C_YIQ[:, :, 0] = ( A_YIQ[:, :, 0] - B_YIQ[:, :, 0] + 1) / 2
+
+    C_YIQ[:, :, 1] = (A_YIQ[:, :, 1] - B_YIQ[:, :, 1]) / 2
+
+    C_YIQ[:, :, 2] = (A_YIQ[:, :, 2] - B_YIQ[:, :, 2]) / 2
+
+    resultado = convertirRGB_YIQ(C_YIQ)
+
+    mostrar_imagen_resultado(resultado)
+
+
 # Funciones de producto entre imagenes
 def producto_RGB(A,B):
-    if A.shape != B.shape:
-            messagebox.showerror(
-                "Error",
-                f"Las imagenes no son de la misma dimensión.\n\n"
-            )
-            return None
     A_norm = np.float32(A) / 255.0
     B_norm = np.float32(B) / 255.0
 
@@ -132,6 +130,16 @@ def producto_RGB(A,B):
 
     mostrar_imagen_resultado(resultado)
 
+# Funciones de cociente entre imagenes
+def cociente_RGB(A,B):
+    a = (np.float32(A))/255.0
+    b = (np.float32(B))/255.0
+    resultado = np.zeros_like(a)
+    np.divide(a,b,out=resultado,where= B != 0)
+    resultado = np.clip(resultado,0,1)
+    resultado = np.uint8(resultado*255)
+    mostrar_imagen_resultado(resultado)
+
 # Funcion de de la interfaz
 
 def operacion(event):
@@ -139,45 +147,76 @@ def operacion(event):
     if seleccion == "Suma":
         formato = ["RGB Clampeada", "RGB Promedio", "YIQ Clampeada", "YIQ Promedio", "YIQ If Ligther", "YIQ If Darker"]
     if seleccion == "Resta":
-        formato = ["RGB Absoluta"]
+        formato = ["RGB Absoluta", "R-RGB Clampeada","R-YIQ Clampeada","R-RGB Promedio","R-YIQ Promedio"]
     if seleccion == "Producto":
-        formato = ["RGB"]    
+        formato = ["RGB"]
+    if seleccion == "Cociente":
+        formato = ["C-RGB"]    
     opcion_formato['values'] = formato
     opcion_formato.set("...")
 
 
-
-
+def validar_dimensiones_Imagenes ():
+    global img1,img2
+    if img1.shape != img2.shape:
+        messagebox.showerror(
+                "Error",
+                f"Las imágenes no son de la misma dimensión.\n\n"
+        )
+        return False    
+    return True
 def realizar_operacion():
-    seleccion_fo = opcion_formato.get()
-    if seleccion_fo == "RGB Clampeada":
-         cuasi_suma_RGB_Clampeada(img1, img2)
-    elif seleccion_fo == "RGB Promedio":
-         cuasi_suma_RGB_Promedio(img1, img2)
-    elif seleccion_fo == "YIQ Clampeada":
-         cuasi_suma_YIQ_clampeada(img1, img2)
-    elif seleccion_fo == "YIQ Promedio":
-         cuasi_suma_YIQ_promedio(img1, img2)
-    elif seleccion_fo == "YIQ If Ligther":
-         cuasi_suma_YIQ_if_ligther(img1, img2)
-    elif seleccion_fo == "YIQ If Darker":
-         cuasi_suma_YIQ_if_darker(img1,img2)
-    elif seleccion_fo == "RGB Absoluta":
-         restar_RGB_absoluta(img1, img2)
-    elif seleccion_fo == "RGB":
-         producto_RGB(img1, img2)
 
-def convertir_YIQ_RGB(yiq):
-    matriz_conversion_YIQ_a_RGB = np.array([
-        [1.0,  0.956,  0.621],
-        [1.0, -0.272, -0.647],
-        [1.0, -1.106,  1.703]
-    ])
-    imagen_rgb = yiq @ matriz_conversion_YIQ_a_RGB.T
+    seleccion_fo = opcion_formato.get()
+    
+    if seleccion_fo == "RGB Clampeada" and validar_dimensiones_Imagenes():
+         cuasi_suma_RGB_Clampeada(img1, img2)
+    elif seleccion_fo == "RGB Promedio"and validar_dimensiones_Imagenes():
+         cuasi_suma_RGB_Promedio(img1, img2)
+    elif seleccion_fo == "YIQ Clampeada"and validar_dimensiones_Imagenes():
+         cuasi_suma_YIQ_clampeada(img1, img2)
+    elif seleccion_fo == "YIQ Promedio"and validar_dimensiones_Imagenes():
+         cuasi_suma_YIQ_promedio(img1, img2)
+    elif seleccion_fo == "YIQ If Ligther"and validar_dimensiones_Imagenes():
+         cuasi_suma_YIQ_if_ligther(img1, img2)
+    elif seleccion_fo == "YIQ If Darker"and validar_dimensiones_Imagenes():
+         cuasi_suma_YIQ_if_darker(img1,img2)
+    elif seleccion_fo == "RGB Absoluta"and validar_dimensiones_Imagenes():
+         restar_RGB_absoluta(img1, img2)
+    elif seleccion_fo == "R-RGB Clampeada"and validar_dimensiones_Imagenes():
+         restar_RGB_clampeada(img1,img2)
+    elif seleccion_fo == "R-YIQ Clampeada"and validar_dimensiones_Imagenes():
+         restar_YIQ_clampeada(img1,img2)
+    elif seleccion_fo == "R-RGB Promedio"and validar_dimensiones_Imagenes():
+         restar_RGB_promedio(img1,img2)
+    elif seleccion_fo == "R-YIQ Promedio"and validar_dimensiones_Imagenes():
+         restar_YIQ_promediada(img1,img2)
+    elif seleccion_fo == "RGB"and validar_dimensiones_Imagenes():
+         producto_RGB(img1, img2)
+    elif seleccion_fo == "C-RGB"and validar_dimensiones_Imagenes():
+         cociente_RGB(img1,img2)
+    
+
+def convertir_YIQ_RGB(_im):
+    MAT_YIQ = np.array([[0.299, 0.595716, 0.211456],
+                        [0.587, -0.274453, -0.522591],
+                        [0.114, -0.321263, 0.311135]])
+    imagen_rgb = (_im.reshape((-1, 3)) @ np.linalg.inv(MAT_YIQ)).reshape(_im.shape)
     imagen_rgb = np.clip(imagen_rgb, 0, 1)
     return (imagen_rgb * 255).astype(np.uint8)
 
+
+def convertirRGB_YIQ(rgb):
+    yiq = np.zeros(rgb.shape)
+    yiq[:,:,0] = 0.229*rgb[:,:,0] + 0.587*rgb[:,:,1] + 0.114*rgb[:,:,2]
+    yiq[:,:,1] = 0.595716*rgb[:,:,0] - 0.274453*rgb[:,:,1] - 0.321263*rgb[:,:,2]
+    yiq[:,:,2] = 0.211456*rgb[:,:,0] - 0.522591*rgb[:,:,1] + 0.311135*rgb[:,:,2]
+    #yiq[:,:,3]=rgb[:,:,3]
+    return yiq
+
+
 def mostrar_imagen_resultado(resultado):
+    global img_resultado
     if resultado is not None:
         if resultado.dtype == np.float64:
             resultado = (resultado * 255).astype(np.uint8)
@@ -186,6 +225,8 @@ def mostrar_imagen_resultado(resultado):
         imagen_tk = ImageTk.PhotoImage(imagen_resultado)
         imagen3_label.config(image=imagen_tk)
         imagen3_label.image = imagen_tk
+        img_resultado=resultado
+
 
 def abrir_imagen(numero):
     file_path = filedialog.askopenfilename(
@@ -208,7 +249,41 @@ def abrir_imagen(numero):
             global img2
             img2 = np.array(imagen)
     realizar_operacion()
+def guardar_imagen():
+    global img_resultado
+    if img_resultado is None:
+        messagebox.showwarning(
+            "Advertencia",
+            "No hay una imagen procesada para guardar."
+        )
+        return None
+    ruta = filedialog.asksaveasfilename(
+        title="Guardar imagen procesada",
+        defaultextension=".png",
+        filetypes=[
+            ("PNG", "*.png"),
+            ("JPEG", "*.jpg"),
+            ("BMP", "*.bmp"),
+            ("TIFF", "*.tif"),
+        ]
+    )
 
+    if not ruta:
+        return
+
+    try:
+        imagen_pil = Image.fromarray(img_resultado)
+        imagen_pil.save(ruta)
+        messagebox.showinfo(
+            "Guardar",
+            "La imagen se guardó correctamente."
+        )
+    except Exception as error:
+    
+            messagebox.showerror(
+                "Error",
+                f"No se pudo guardar la imagen.\n\n{error}"
+            )    
 def intercambiar_imagenes():
     global img1, img2
     img1, img2 = img2, img1
@@ -274,7 +349,7 @@ guardar_imagen_button.pack(side="bottom", pady=5)
 
 
 # menu de operaciones
-Operaciones=["Suma","Resta","Producto"]
+Operaciones=["Suma","Resta","Producto","Cociente"]
 operacion_label = tk.Label(contenedor_botones, text="Operaciones:")
 operacion_label.pack(side="left", padx=5, pady=5)
 opcion_op = ttk.Combobox(contenedor_botones, values=Operaciones, state="readonly")
@@ -291,7 +366,7 @@ opcion_formato.pack(side="left", padx=5, pady=5)
 opcion_formato.bind("<<ComboboxSelected>>", lambda event: realizar_operacion())
 
 intercambiar_btn = tk.Button(contenedor_botones, text="Intercambiar Imagenes", command=lambda: intercambiar_imagenes())
-intercambiar_btn.pack(side="right", padx=5, pady=5)
+#intercambiar_btn.pack(side="right", padx=5, pady=5)
 
 
 windows.mainloop()
