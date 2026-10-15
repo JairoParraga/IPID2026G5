@@ -1,108 +1,143 @@
+
 import tkinter as tk
 from tkinter import filedialog, messagebox, ttk
+import sys
+from pathlib import Path
 
 from PIL import Image, ImageTk
 import numpy as np
 import matplotlib.pyplot as plt
+from matplotlib.backends.backend_tkagg import FigureCanvasTkAgg
 
-img1=None
-img_resultante=None
 
-# Funciones de operaciones en luminicidad
-def Y_raizcuadrada():
-    yiq = convertirRGB_YIQ((np.float32(img1))/255.0)
-    yiq[:,:,0] = np.sqrt(yiq[:,:,0])
-    mostrar_resultado(convertir_YIQ_RGB(yiq))
-    
-def Y_cuadratica():
-    yiq = convertirRGB_YIQ((np.float32(img1))/255.0)
-    yiq[:,:,0] = yiq[:,:,0]*yiq[:,:,0]
-    mostrar_resultado(convertir_YIQ_RGB(yiq))
 
-def Y_lineal_trozo(ymin,ymax):
-    yiq = convertirRGB_YIQ((np.float32(img1))/255.0)
-    y = yiq[:,:,0]
+ruta_proyecto = Path(__file__).resolve().parent.parent
+sys.path.append(str(ruta_proyecto))
 
-    y = np.where(
-        y < ymin,
-        0,
-        np.where(
-            y > ymax,
-            1,
-            (y - ymin) / (ymax - ymin)
-        )
-    )
+import pdi_helper as pdi
 
-    yiq[:, :, 0] = y
 
-    mostrar_resultado(convertir_YIQ_RGB(yiq))
+img1 = None
+img_resultante = None
+
+
+
+# ==================================================
+# MOSTRAR IMAGEN RESULTANTE
+# ==================================================
 
 def mostrar_resultado(imagen_array):
-    if imagen_array.ndim == 2:
-        imagen_pil = Image.fromarray(
-            imagen_array.astype(np.uint8)
-        )
-    else:
-        imagen_pil = Image.fromarray(
-            imagen_array.astype(np.uint8)
-        )
     global img_resultante
-    img_resultante=imagen_array
-    foto = ImageTk.PhotoImage(imagen_pil)
-    imagen2_label.foto = foto
-    imagen2_label.config(
-        image=foto,
-        text=""
+
+    img_resultante = imagen_array.copy()
+
+    imagen_pil = Image.fromarray(
+        img_resultante.astype(np.uint8)
     )
 
+    # Redimensionar solamente la vista, no la matriz original
+    vista = imagen_pil.copy()
+    vista.thumbnail((350, 250))
 
-def convertir_YIQ_RGB(_im):
-    MAT_YIQ = np.array([[0.299, 0.595716, 0.211456],
-                        [0.587, -0.274453, -0.522591],
-                        [0.114, -0.321263, 0.311135]])
-    imagen_rgb = (_im.reshape((-1, 3)) @ np.linalg.inv(MAT_YIQ)).reshape(_im.shape)
-    imagen_rgb = np.clip(imagen_rgb, 0, 1)
-    return (imagen_rgb * 255).astype(np.uint8)
+    foto = ImageTk.PhotoImage(vista)
+
+    imagen2_label.config(image=foto, text="")
+    imagen2_label.image = foto
+
+    # Actualizar histograma de la imagen resultante
+    mostrar_histograma(img_resultante, ax2, canvas2)
 
 
-def convertirRGB_YIQ(rgb):
-    yiq = np.zeros(rgb.shape)
-    yiq[:,:,0] = 0.299*rgb[:,:,0] + 0.587*rgb[:,:,1] + 0.114*rgb[:,:,2]
-    yiq[:,:,1] = 0.595716*rgb[:,:,0] - 0.274453*rgb[:,:,1] - 0.321263*rgb[:,:,2]
-    yiq[:,:,2] = 0.211456*rgb[:,:,0] - 0.522591*rgb[:,:,1] + 0.311135*rgb[:,:,2]
-    #yiq[:,:,3]=rgb[:,:,3]
-    return yiq
+# ==================================================
+# HISTOGRAMA DEL CANAL Y EN PORCENTAJES
+# ==================================================
 
-def mostrar_hitograma(img ,estado):
-    yiq=convertirRGB_YIQ(((np.float32(img))/255.0))
-    if (estado):
-        plt.figure("Hitograma de la imagen original")
-    else:
-        plt.figure("Hitograma de la imagen resultante")
-    plt.hist(yiq[:,:,0].ravel(),bins=50)
+def mostrar_histograma(img, ax, canvas):
+    yiq=pdi.convertir_RGB_a_YIQ(img)
+    luminancia = yiq[:, :, 0].ravel()
 
-    plt.title("Canal Y")
-    plt.xlabel("Luminancia")
-    plt.ylabel("Frecuencia")
-    
-    plt.show()
+    # Cada píxel representa el mismo porcentaje del total
+    pesos = np.full(
+        luminancia.size,
+        100.0 / luminancia.size
+    )
 
-# Funciones de la interfaz
+    ax.clear()
+
+    ax.hist(
+        luminancia,
+        bins=50,
+        range=(0, 1),
+        weights=pesos,
+        color="steelblue",
+        edgecolor="black"
+    )
+
+    ax.set_title("Histograma del canal Y")
+    ax.set_xlabel("Luminancia")
+    ax.set_ylabel("Aparición (%)")
+    ax.set_xlim(0, 1)
+    ax.set_ylim(bottom=0)
+    ax.grid(axis="y", alpha=0.3)
+
+    ax.figure.tight_layout()
+    canvas.draw()
+
+
+# ==================================================
+# ABRIR IMAGEN
+# ==================================================
+
 def abrir_imagen():
-    file_path = filedialog.askopenfilename(
-        title=f"Abrir Imagen",
-        filetypes=[("Archivos de imagen", "*.png;*.jpg;*.jpeg;*.bmp;*.tiff"), ("Todos los archivos", "*.*")]
-    )
-    if file_path:
-        imagen = Image.open(file_path)
-        imagen.thumbnail((200, 200))
-        imagen_tk = ImageTk.PhotoImage(imagen)
+    global img1
 
-        imagen1_label.config(image=imagen_tk)
-        imagen1_label.image = imagen_tk
-        global img1
+    file_path = filedialog.askopenfilename(
+        title="Abrir imagen",
+        filetypes=[
+            (
+                "Archivos de imagen",
+                "*.png *.jpg *.jpeg *.bmp *.tiff"
+            ),
+            ("Todos los archivos", "*.*")
+        ]
+    )
+
+    if not file_path:
+        return
+
+    try:
+        # Convertir a RGB para garantizar tres canales
+        imagen = Image.open(file_path).convert("RGB")
+
+        # Guardar la imagen completa como matriz NumPy
         img1 = np.array(imagen)
-       
+
+        # Mostrar una vista reducida sin alterar img1
+        vista = imagen.copy()
+        vista.thumbnail((350, 250))
+
+        imagen_tk = ImageTk.PhotoImage(vista)
+
+        imagen1_label.config(image=imagen_tk, text="")
+        imagen1_label.image = imagen_tk
+
+        # Al abrir, la imagen resultante comienza siendo la original
+        mostrar_resultado(img1)
+
+        # Actualizar histograma original
+        mostrar_histograma(img1, ax1, canvas1)
+
+    except Exception as error:
+        messagebox.showerror(
+            "Error",
+            f"No se pudo abrir la imagen:\n{error}"
+        )
+
+
+# ==================================================
+# VALIDACIONES
+# ==================================================
+
 def validarImagen(img):
     if img is None:
         messagebox.showwarning(
@@ -110,92 +145,246 @@ def validarImagen(img):
             "Primero debes abrir una imagen."
         )
         return False
+
     return True
 
+
 def validarYs():
-    ymin=y_min.get()
-    ymax=y_max.get()
-    if ymax==ymin:
-        return None
-    if ymin<ymax:
-        Y_lineal_trozo(float(ymin),float(ymax))
-    else:
-        messagebox.showwarning(
-                    "Advertencia",
-                    "Los valores de minimo y maximo esta mal."
-                )
-        return False        
+    if not validarImagen(img1):
+        return
 
-def operacion(event=None):    
+    ymin = y_min.get()
+    ymax = y_max.get()
+
+    mostrar_resultado(pdi.Y_lineal_trozos(img1, ymin, ymax))
+
+
+
+# ==================================================
+# SELECCIÓN DE OPERACIONES
+# ==================================================
+
+def operacion(event=None):
     op = operacion_md.get()
+
     seccion_max_min.pack_forget()
-    if op == "Raiz" and validarImagen(img1):
-        Y_raizcuadrada()
-    elif op == "Cuadrado" and validarImagen(img1):
-        Y_cuadratica()
-    elif op == "Lineal a Trozos" and validarImagen(img1):
-        seccion_max_min.pack(side="right", padx=10)
-        validarYs()
-    elif op == "Hitograma del canal Y Original" and validarImagen(img1):
-        mostrar_hitograma(img1,True)
-    elif op == "Hitograma del canal Y Modificado" and validarImagen(img_resultante):
-        mostrar_hitograma(img_resultante, False)
-# Intefaz 
+
+    if op == "Lineal a Trozos":
+        if validarImagen(img1):
+            seccion_max_min.pack(
+                side="top",
+                fill="x",
+                padx=5,
+                pady=5
+            )
+        return
+
+    if op == "Raiz":
+        if validarImagen(img1):
+            mostrar_resultado(pdi.Y_raiz_cuadrada(img1))
+
+    elif op == "Cuadrado":
+        if validarImagen(img1):
+            mostrar_resultado(pdi.Y_cuadratica(img1))
+
+
+# ==================================================
+# INTERFAZ TKINTER
+# ==================================================
+
 ventana = tk.Tk()
-ventana.geometry("850x450")
-ventana.title("TP 3 Operaciones de luminancia")
+ventana.geometry("1100x800")
+ventana.title("TP 3 - Operaciones de luminancia")
 
-card_imagen = tk.Frame(ventana)
-card_imagen.pack(side="left",fill="both",expand=True)
+# Distribución principal: dos columnas
+contenedor = tk.Frame(ventana)
+contenedor.pack(fill="both", expand=True, padx=10, pady=10)
 
-imagen1_label = tk.Label(card_imagen, text="Imagen 1",bg="lightgray")
-imagen1_label.pack(side="top",fill="both",expand=True,pady=20,padx=10)
-abrir_btn = tk.Button(card_imagen,text="Abrir imagen",command= abrir_imagen )
-abrir_btn.pack(side="bottom")
-card_operacion=tk.Frame(ventana)
-card_operacion.pack(side="right",fill="both",expand=True)
+# --------------------------------------------------
+# COLUMNA IZQUIERDA: IMAGEN ORIGINAL E HISTOGRAMA
+# --------------------------------------------------
 
-imagen2_label = tk.Label(card_operacion, text="Imagen Resultante",bg="lightgray")
-imagen2_label.pack(side="top",fill="both",expand=True,pady=20,padx=10)
+card_imagen = tk.Frame(contenedor)
+card_imagen.pack(
+    side="left",
+    fill="both",
+    expand=True,
+    padx=5
+)
 
-seccion_operacion = tk.Frame(card_operacion)
-seccion_operacion.pack(side="bottom")
+tk.Label(
+    card_imagen,
+    text="Imagen original",
+    font=("Arial", 12, "bold")
+).pack(pady=5)
 
-operacion_label = tk.Label(seccion_operacion,text="Operacion: ")
-operacion_label.pack(side="left",padx=10)
+imagen1_label = tk.Label(
+    card_imagen,
+    text="Abrí una imagen",
+    bg="lightgray",
+    width=40,
+    height=12
+)
+imagen1_label.pack(fill="both", expand=True, pady=5)
 
-seccion_max_min=tk.Frame(seccion_operacion)
+tk.Label(
+    card_imagen,
+    text="Histograma original",
+    font=("Arial", 11, "bold")
+).pack(pady=5)
+
+figura1, ax1 = plt.subplots(figsize=(5, 2.5))
+
+canvas1 = FigureCanvasTkAgg(
+    figura1,
+    master=card_imagen
+)
+
+canvas1.get_tk_widget().pack(
+    fill="both",
+    expand=True,
+    pady=5
+)
+
+abrir_btn = tk.Button(
+    card_imagen,
+    text="Abrir imagen",
+    command=abrir_imagen
+)
+abrir_btn.pack(pady=5)
 
 
-seccion_min=tk.Frame(seccion_max_min)
-seccion_min.pack(side="left",padx=10)
+# --------------------------------------------------
+# COLUMNA DERECHA: IMAGEN RESULTANTE E HISTOGRAMA
+# --------------------------------------------------
+
+card_resultado = tk.Frame(contenedor)
+card_resultado.pack(
+    side="right",
+    fill="both",
+    expand=True,
+    padx=5
+)
+
+tk.Label(
+    card_resultado,
+    text="Imagen resultante",
+    font=("Arial", 12, "bold")
+).pack(pady=5)
+
+imagen2_label = tk.Label(
+    card_resultado,
+    text="Sin resultados",
+    bg="lightgray",
+    width=40,
+    height=12
+)
+imagen2_label.pack(fill="both", expand=True, pady=5)
+
+tk.Label(
+    card_resultado,
+    text="Histograma resultante",
+    font=("Arial", 11, "bold")
+).pack(pady=5)
+
+figura2, ax2 = plt.subplots(figsize=(5, 2.5))
+
+canvas2 = FigureCanvasTkAgg(
+    figura2,
+    master=card_resultado
+)
+
+canvas2.get_tk_widget().pack(
+    fill="both",
+    expand=True,
+    pady=5
+)
 
 
-y_min=tk.DoubleVar()
-label_min=tk.Label(seccion_min,text="Valor minimo de Y")
-label_min.pack(side="top")
-valor_minimo = tk.Scale(seccion_min,from_=0.0, to=1.0,resolution=0.1,variable=y_min,orient="horizontal")
-valor_minimo.pack(side="bottom",)
+# --------------------------------------------------
+# CONTROLES DE OPERACIONES
+# --------------------------------------------------
 
-seccion_max=tk.Frame(seccion_max_min)
-seccion_max.pack(side="left",padx=10)
+seccion_operacion = tk.Frame(card_resultado)
+seccion_operacion.pack(side="bottom", fill="x", pady=5)
 
-y_max=tk.DoubleVar()
-label_max=tk.Label(seccion_max,text="Valor maximo de Y")
-label_max.pack(side="top")
-valor_maximo = tk.Scale(seccion_max,from_=0.0, to=1.0,resolution=0.1,variable=y_max,orient="horizontal")
-valor_maximo.pack(side="bottom",padx=10)
+operacion_label = tk.Label(
+    seccion_operacion,
+    text="Operación:"
+)
+operacion_label.pack(side="left", padx=5)
 
-calcular_bt=tk.Button(seccion_max_min,text="Calcular",command=validarYs)
-calcular_bt.pack(side="right",padx=10)
+valores_operaciones = [
+    "Raiz",
+    "Cuadrado",
+    "Lineal a Trozos",
+]
+
+operacion_md = ttk.Combobox(
+    seccion_operacion,
+    values=valores_operaciones,
+    state="readonly",
+    width=32
+)
+
+operacion_md.pack(side="left", padx=5)
+operacion_md.set("Seleccionar operación")
+operacion_md.bind("<<ComboboxSelected>>", operacion)
 
 
-valores_operaciones = ["Raiz", "Cuadrado", "Lineal a Trozos","Hitograma del canal Y Original","Hitograma del canal Y Modificado"]
-operacion_md=ttk.Combobox(seccion_operacion,values=valores_operaciones,state="readonly")
-operacion_md.pack(side="left",padx=10)
-operacion_md.set("...")
-operacion_md.bind("<<ComboboxSelected>>", operacion )
+# --------------------------------------------------
+# CONTROLES PARA LINEAL A TROZOS
+# --------------------------------------------------
+
+seccion_max_min = tk.Frame(card_resultado)
+
+seccion_min = tk.Frame(seccion_max_min)
+seccion_min.pack(side="left", padx=5)
+
+y_min = tk.DoubleVar(value=0.0)
+
+tk.Label(
+    seccion_min,
+    text="Valor mínimo de Y"
+).pack()
+
+valor_minimo = tk.Scale(
+    seccion_min,
+    from_=0.0,
+    to=1.0,
+    resolution=0.1,
+    variable=y_min,
+    orient="horizontal"
+)
+valor_minimo.pack()
+
+seccion_max = tk.Frame(seccion_max_min)
+seccion_max.pack(side="left", padx=5)
+
+y_max = tk.DoubleVar(value=1.0)
+
+tk.Label(
+    seccion_max,
+    text="Valor máximo de Y"
+).pack()
+
+valor_maximo = tk.Scale(
+    seccion_max,
+    from_=0.0,
+    to=1.0,
+    resolution=0.1,
+    variable=y_max,
+    orient="horizontal"
+)
+valor_maximo.pack()
+
+calcular_bt = tk.Button(
+    seccion_max_min,
+    text="Calcular",
+    command=validarYs
+)
+calcular_bt.pack(side="left", padx=10)
 
 
-
+# Iniciar la aplicación
 ventana.mainloop()

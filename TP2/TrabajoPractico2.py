@@ -1,144 +1,25 @@
 import tkinter as tk
 from tkinter import filedialog, messagebox, ttk
+import sys
+from pathlib import Path
 
 from PIL import Image, ImageTk
 import numpy as np
 import matplotlib.pyplot as plt
 
+ruta_proyecto = Path(__file__).resolve().parent.parent
+sys.path.append(str(ruta_proyecto))
+
+import pdi_helper as pdi
+
+
+
+
 img1 = None
 img2 = None
 img_resultado = None
 # Funciones para sumar dos imagenes
-def cuasi_suma_RGB_Clampeada(A,B):
-    resultado = A + B
-    resultado = np.clip(resultado, 0, 255)
-    mostrar_imagen_resultado(resultado)
-    
 
-def cuasi_suma_RGB_Promedio(A,B):
-    resultado = ((A + B).astype(np.float64))/2
-    resultado = resultado.astype(np.uint8)
-    mostrar_imagen_resultado(resultado) 
-   
-
-def cuasi_suma_YIQ_clampeada(A,B):
-    C_YIQ=np.zeros(A.shape)
-    A_YIQ=convertirRGB_YIQ(np.float32(A)/255.0)
-    B_YIQ=convertirRGB_YIQ(np.float32(B)/255.0)
-    C_YIQ[:,:,0]=np.clip(A_YIQ[:,:,0]+B_YIQ[:,:,0],0,1)
-    C_YIQ[:,:,1]=(A_YIQ[:,:,0]*A_YIQ[:,:,1]+B_YIQ[:,:,0]*B_YIQ[:,:,1])/(A_YIQ[:,:,0]+B_YIQ[:,:,0])
-    C_YIQ[:,:,2]=(A_YIQ[:,:,0]*A_YIQ[:,:,2]+B_YIQ[:,:,0]*B_YIQ[:,:,2])/(A_YIQ[:,:,0]+B_YIQ[:,:,0])
-
-    mostrar_imagen_resultado(convertir_YIQ_RGB(C_YIQ))
-
-
-def cuasi_suma_YIQ_promedio(A,B):
-    C_YIQ=np.zeros(A.shape)
-    A_YIQ=convertirRGB_YIQ(np.float32(A)/255.0)
-    B_YIQ=convertirRGB_YIQ(np.float32(B)/255.0)
-    C_YIQ[:,:,0]=(A_YIQ[:,:,0]+B_YIQ[:,:,0])/2
-    C_YIQ[:,:,1]=(A_YIQ[:,:,0]*A_YIQ[:,:,1]+B_YIQ[:,:,0]*B_YIQ[:,:,1])/(A_YIQ[:,:,0]+B_YIQ[:,:,0])
-    C_YIQ[:,:,2]=(A_YIQ[:,:,0]*A_YIQ[:,:,2]+B_YIQ[:,:,0]*B_YIQ[:,:,2])/(A_YIQ[:,:,0]+B_YIQ[:,:,0])
-    mostrar_imagen_resultado(convertir_YIQ_RGB(C_YIQ))
-    
-def cuasi_suma_YIQ_if_ligther(A,B):
-    
-    A_YIQ=convertirRGB_YIQ(np.float32(A)/255.0)
-    B_YIQ=convertirRGB_YIQ(np.float32(B)/255.0)
-    
-    condicion = A_YIQ[:, :, 0] > B_YIQ[:, :, 0]
-    C_YIQ = np.where(condicion[:, :, np.newaxis], A_YIQ, B_YIQ)
-    
-    mostrar_imagen_resultado(convertir_YIQ_RGB(C_YIQ))
-
-def cuasi_suma_YIQ_if_darker(A,B):
-    A_YIQ=convertirRGB_YIQ(np.float32(A)/255.0)
-    B_YIQ=convertirRGB_YIQ(np.float32(B)/255.0)
-
-    condicion = A_YIQ[:, :, 0] < B_YIQ[:, :, 0]
-    C_YIQ = np.where(condicion[:, :, np.newaxis], A_YIQ, B_YIQ)
-
-    mostrar_imagen_resultado(convertir_YIQ_RGB(C_YIQ))    
-
-# Funciones de restar dos imagenes
-def restar_RGB_absoluta(A,B):
-    a=A.astype(np.float64)
-    b=B.astype(np.float64)
-    resultado = np.abs(a-b)
-    resultado = np.uint8(resultado)
-    mostrar_imagen_resultado(resultado)
-
-def restar_RGB_promedio(A,B):
-    a = np.float32(A)/255.0
-    b = np.float32(B)/255.0
-
-    resultado = (a - b + 1.0) / 2.0
-
-    resultado = np.clip(resultado, 0, 1)
-
-    resultado = np.uint8(resultado * 255)
-    mostrar_imagen_resultado(resultado)
-
-def restar_RGB_clampeada(A,B): 
-    A = np.float32(A)
-    B = np.float32(B)
-    resultado = A - B
-    resultado = np.clip(resultado,0,255)
-    resultado = np.uint8(resultado)
-    mostrar_imagen_resultado(resultado)    
-
-def restar_YIQ_clampeada(A,B):
-
-    A_YIQ=convertirRGB_YIQ(np.float32(A)/255.0)
-    B_YIQ=convertirRGB_YIQ(np.float32(B)/255.0)
-    C_YIQ = np.zeros_like(A_YIQ)
-    C_Y = A_YIQ[:,:,0] - B_YIQ[:,:,0]
-    C_YIQ[:,:,1] = np.where(C_Y>0,A_YIQ[:,:,1],0)
-    C_YIQ[:,:,2] = np.where(C_Y>0,A_YIQ[:,:,2],0)
-    
-    C_YIQ[:,:,0] = np.clip(C_Y,0,1)
-
-
-    resultado = convertirRGB_YIQ(C_YIQ)
-    mostrar_imagen_resultado(resultado)
-
-def restar_YIQ_promediada(A, B):
-
-    A_YIQ = convertirRGB_YIQ(np.float32(A) / 255.0)
-    B_YIQ = convertirRGB_YIQ(np.float32(B) / 255.0)
-    C_YIQ = np.zeros_like(A_YIQ)
-
-    C_YIQ[:, :, 0] = ( A_YIQ[:, :, 0] - B_YIQ[:, :, 0] + 1) / 2
-
-    C_YIQ[:, :, 1] = (A_YIQ[:, :, 1] - B_YIQ[:, :, 1]) / 2
-
-    C_YIQ[:, :, 2] = (A_YIQ[:, :, 2] - B_YIQ[:, :, 2]) / 2
-
-    resultado = convertirRGB_YIQ(C_YIQ)
-
-    mostrar_imagen_resultado(resultado)
-
-
-# Funciones de producto entre imagenes
-def producto_RGB(A,B):
-    A_norm = np.float32(A) / 255.0
-    B_norm = np.float32(B) / 255.0
-
-    resultado = (A_norm * B_norm) * 255.0
-
-    resultado = np.uint8(resultado)
-
-    mostrar_imagen_resultado(resultado)
-
-# Funciones de cociente entre imagenes
-def cociente_RGB(A,B):
-    a = (np.float32(A))/255.0
-    b = (np.float32(B))/255.0
-    resultado = np.zeros_like(a)
-    np.divide(a,b,out=resultado,where= B != 0)
-    resultado = np.clip(resultado,0,1)
-    resultado = np.uint8(resultado*255)
-    mostrar_imagen_resultado(resultado)
 
 # Funcion de de la interfaz
 
@@ -158,61 +39,101 @@ def operacion(event):
 
 def validar_dimensiones_Imagenes ():
     global img1,img2
-    if img1.shape != img2.shape:
+    if img1.shape[0] != img2.shape[0] or img1.shape[1] != img2.shape[1]:
         messagebox.showerror(
                 "Error",
                 f"Las imágenes no son de la misma dimensión.\n\n"
         )
+
+        respuesta = messagebox.askyesno( "Confirmación", "¿Desea redimencionar la imagen con la dimension de la otra para realizar esta acción?")
+        if respuesta:
+            # Instrucciones si responde Sí
+            igualar_dimensiones(img1, img2)
+            actualizar_imagenes()
+            return True
         return False    
     return True
+
+def igualar_dimensiones(imgen1, imgen2):
+    pil1 = Image.fromarray(imgen1)
+    pil2 = Image.fromarray(imgen2)
+
+    # Obtener las dimensiones (ancho, alto)
+    ancho1, alto1 = pil1.size
+    ancho2, alto2 = pil2.size
+
+    # Determinar cuál imagen tiene menor superficie
+    if ancho1 * alto1 <= ancho2 * alto2:
+        # img1 es la base
+        global img2
+        img2 = np.array(
+            pil2.resize((ancho1, alto1), Image.Resampling.LANCZOS)
+        )
+    else:
+        # img2 es la base
+        global img1
+        img1 = np.array(
+            pil1.resize((ancho2, alto2), Image.Resampling.LANCZOS)
+        )
+
+def actualizar_imagenes():
+        global img1, img2
+        imagen1 = Image.fromarray(img1)
+        imagen1.thumbnail((200, 200))
+        imagen1_tk = ImageTk.PhotoImage(imagen1)
+        imagen1_label.config(image=imagen1_tk)
+        imagen1_label.image = imagen1_tk
+        imagen2 = Image.fromarray(img2)
+        imagen2.thumbnail((200, 200))
+        imagen2_tk = ImageTk.PhotoImage(imagen2)
+        imagen2_label.config(image=imagen2_tk)
+        imagen2_label.image = imagen2_tk
+
+
 def realizar_operacion():
 
     seleccion_fo = opcion_formato.get()
     
     if seleccion_fo == "RGB Clampeada" and validar_dimensiones_Imagenes():
-         cuasi_suma_RGB_Clampeada(img1, img2)
-    elif seleccion_fo == "RGB Promedio"and validar_dimensiones_Imagenes():
-         cuasi_suma_RGB_Promedio(img1, img2)
+         mostrar_imagen_resultado(
+             pdi.cuasi_suma_RGB_clampeada(img1, img2)
+        )
+    elif seleccion_fo == "RGB Promedio"and validar_dimensiones_Imagenes():         
+         mostrar_imagen_resultado(
+             pdi.cuasi_suma_RGB_promedio(img1, img2)
+        )
     elif seleccion_fo == "YIQ Clampeada"and validar_dimensiones_Imagenes():
-         cuasi_suma_YIQ_clampeada(img1, img2)
+         mostrar_imagen_resultado(
+             pdi.cuasi_suma_YIQ_clampeada(img1, img2)
+        )
     elif seleccion_fo == "YIQ Promedio"and validar_dimensiones_Imagenes():
-         cuasi_suma_YIQ_promedio(img1, img2)
+         mostrar_imagen_resultado(
+             pdi.cuasi_suma_YIQ_promedio(img1, img2)
+        )
     elif seleccion_fo == "YIQ If Ligther"and validar_dimensiones_Imagenes():
-         cuasi_suma_YIQ_if_ligther(img1, img2)
+         mostrar_imagen_resultado(
+             pdi.cuasi_suma_YIQ_if_lighter(img1, img2)
+        )
     elif seleccion_fo == "YIQ If Darker"and validar_dimensiones_Imagenes():
-         cuasi_suma_YIQ_if_darker(img1,img2)
+         mostrar_imagen_resultado(
+             pdi.cuasi_suma_YIQ_if_darker(img1,img2)
+        )
     elif seleccion_fo == "RGB Absoluta"and validar_dimensiones_Imagenes():
-         restar_RGB_absoluta(img1, img2)
+         mostrar_imagen_resultado(pdi.restar_RGB_absoluta(img1, img2))
     elif seleccion_fo == "R-RGB Clampeada"and validar_dimensiones_Imagenes():
-         restar_RGB_clampeada(img1,img2)
+         mostrar_imagen_resultado(pdi.restar_RGB_clampeada(img1,img2))
     elif seleccion_fo == "R-YIQ Clampeada"and validar_dimensiones_Imagenes():
-         restar_YIQ_clampeada(img1,img2)
+         mostrar_imagen_resultado(pdi.restar_YIQ_clampeada(img1,img2))
     elif seleccion_fo == "R-RGB Promedio"and validar_dimensiones_Imagenes():
-         restar_RGB_promedio(img1,img2)
+         mostrar_imagen_resultado(pdi.restar_RGB_promedio(img1,img2))
     elif seleccion_fo == "R-YIQ Promedio"and validar_dimensiones_Imagenes():
-         restar_YIQ_promediada(img1,img2)
+         mostrar_imagen_resultado(pdi.restar_YIQ_promediada(img1,img2))
     elif seleccion_fo == "RGB"and validar_dimensiones_Imagenes():
-         producto_RGB(img1, img2)
+         mostrar_imagen_resultado(pdi.producto_RGB(img1, img2))
     elif seleccion_fo == "C-RGB"and validar_dimensiones_Imagenes():
-         cociente_RGB(img1,img2)
+         mostrar_imagen_resultado(pdi.cociente_RGB(img1,img2))
     
 
-def convertir_YIQ_RGB(_im):
-    MAT_YIQ = np.array([[0.299, 0.595716, 0.211456],
-                        [0.587, -0.274453, -0.522591],
-                        [0.114, -0.321263, 0.311135]])
-    imagen_rgb = (_im.reshape((-1, 3)) @ np.linalg.inv(MAT_YIQ)).reshape(_im.shape)
-    imagen_rgb = np.clip(imagen_rgb, 0, 1)
-    return (imagen_rgb * 255).astype(np.uint8)
-
-
-def convertirRGB_YIQ(rgb):
-    yiq = np.zeros(rgb.shape)
-    yiq[:,:,0] = 0.229*rgb[:,:,0] + 0.587*rgb[:,:,1] + 0.114*rgb[:,:,2]
-    yiq[:,:,1] = 0.595716*rgb[:,:,0] - 0.274453*rgb[:,:,1] - 0.321263*rgb[:,:,2]
-    yiq[:,:,2] = 0.211456*rgb[:,:,0] - 0.522591*rgb[:,:,1] + 0.311135*rgb[:,:,2]
-    #yiq[:,:,3]=rgb[:,:,3]
-    return yiq
 
 
 def mostrar_imagen_resultado(resultado):
