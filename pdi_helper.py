@@ -713,3 +713,183 @@ def kernel_pasaaltos(frecuencia_corte=0.2):
         identidad = np.zeros((3, 3), dtype=np.float32)
         identidad[1, 1] = 1.0
         return identidad - kernel_gaussiano(3)
+
+
+
+# ==============================================================================
+# 8. OPERACIONES MORFOLÓGICAS (TP5) - IMPLEMENTACIÓN CORREGIDA
+# ==============================================================================
+# Estas operaciones trabajan sobre imágenes 2D. Para escala de grises se espera
+# uint8 [0, 255]. Para binario se admite tanto {0, 1} como {0, 255}.
+# Se utiliza un elemento estructurante cuadrado de 3x3 y extensión por borde.
+
+
+def _a_grises_2d(imagen):
+    """Devuelve una imagen 2D uint8, convirtiendo RGB a grises si es necesario."""
+    if imagen is None:
+        raise ValueError("La imagen no puede ser None.")
+    arreglo = np.asarray(imagen)
+    if arreglo.ndim == 3:
+        arreglo = escala_grises(arreglo)
+    if arreglo.ndim != 2:
+        raise ValueError("La operación morfológica requiere una imagen 2D.")
+    return convertir_uint8(arreglo)
+
+
+def validar_binarizar(imagen):
+    """Indica si la matriz es 2D y contiene únicamente 0/1 o 0/255."""
+    if imagen is None:
+        return False
+    arreglo = np.asarray(imagen)
+    if arreglo.ndim != 2:
+        return False
+    valores = np.unique(arreglo)
+    return bool(np.all(np.isin(valores, [0, 1])) or np.all(np.isin(valores, [0, 255])))
+
+
+def binarizar(imagen, umbral=0.5):
+    """Binariza una imagen gris. Umbral en [0,1] normalizado o en [0,255].
+
+    Devuelve una matriz uint8 cuyos valores son 0 y 1, manteniendo compatibilidad
+    con los ejercicios morfológicos que usan la convención binaria {0, 1}.
+    """
+    gris = _a_grises_2d(imagen)
+    umbral = float(umbral)
+    umbral_px = umbral * 255.0 if 0.0 <= umbral <= 1.0 else umbral
+    return (gris > umbral_px).astype(np.uint8)
+
+
+def _extremo_vecindad_3x3(imagen, funcion):
+    """Aplica mínimo/máximo local 3x3, repitiendo los valores de los bordes."""
+    img = _a_grises_2d(imagen)
+    pad = np.pad(img, ((1, 1), (1, 1)), mode="edge")
+    ventanas = [pad[i:i + img.shape[0], j:j + img.shape[1]]
+                for i in range(3) for j in range(3)]
+    resultado = ventanas[0].copy()
+    for ventana in ventanas[1:]:
+        resultado = funcion(resultado, ventana)
+    return resultado.astype(img.dtype, copy=False)
+
+
+def dilatacion_gris(imagen):
+    """Dilatación en escala de grises: máximo de la vecindad 3x3."""
+    return _extremo_vecindad_3x3(imagen, np.maximum)
+
+
+def erocion_gris(imagen):
+    """Erosión en escala de grises: mínimo de la vecindad 3x3."""
+    return _extremo_vecindad_3x3(imagen, np.minimum)
+
+
+def erosion_gris(imagen):
+    """Alias con ortografía estándar para erocion_gris."""
+    return erocion_gris(imagen)
+
+
+def dilatacion_binarizada(imagen):
+    """Dilatación binaria (máximo local 3x3); conserva la escala de entrada."""
+    return _extremo_vecindad_3x3(imagen, np.maximum)
+
+
+def erocion_binarizada(imagen):
+    """Erosión binaria (mínimo local 3x3); conserva la escala de entrada."""
+    return _extremo_vecindad_3x3(imagen, np.minimum)
+
+
+def erosion_binarizada(imagen):
+    """Alias con ortografía estándar para erocion_binarizada."""
+    return erocion_binarizada(imagen)
+
+
+def erosion(imagen):
+    """Erosión morfológica 3x3 (válida para escala de grises o binaria)."""
+    return erocion_gris(imagen)
+
+
+def dilatacion(imagen):
+    """Dilatación morfológica 3x3 (válida para escala de grises o binaria)."""
+    return dilatacion_gris(imagen)
+
+
+def apertura_gris(imagen):
+    """Apertura: erosión seguida de dilatación."""
+    return dilatacion_gris(erocion_gris(imagen))
+
+
+def cierre_gris(imagen):
+    """Cierre: dilatación seguida de erosión."""
+    return erocion_gris(dilatacion_gris(imagen))
+
+
+def gradiente_morfologica_gris(imagen):
+    """Borde morfológico (gradiente): dilatación menos erosión."""
+    dilatada = dilatacion_gris(imagen).astype(np.int16)
+    erosionada = erocion_gris(imagen).astype(np.int16)
+    return np.clip(dilatada - erosionada, 0, 255).astype(np.uint8)
+
+
+def apertura_binarizada(imagen):
+    """Apertura binaria: erosión seguida de dilatación."""
+    return dilatacion_binarizada(erocion_binarizada(imagen))
+
+
+def cierre_binarizada(imagen):
+    """Cierre binario: dilatación seguida de erosión."""
+    return erocion_binarizada(dilatacion_binarizada(imagen))
+
+
+def gradiente_morfologica(imagen):
+    """Gradiente morfológico binario: dilatación menos erosión."""
+    dilatada = dilatacion_binarizada(imagen).astype(np.int16)
+    erosionada = erocion_binarizada(imagen).astype(np.int16)
+    return np.maximum(dilatada - erosionada, 0).astype(np.asarray(imagen).dtype)
+
+
+def borde_exterior(imagen):
+    """Borde exterior: dilatación menos imagen original."""
+    img = _a_grises_2d(imagen)
+    dilatada = dilatacion_gris(img).astype(np.int16)
+    return np.maximum(dilatada - img.astype(np.int16), 0).astype(np.uint8)
+
+
+def borde_interior(imagen):
+    """Borde interior: imagen original menos erosión."""
+    img = _a_grises_2d(imagen)
+    erosionada = erocion_gris(img).astype(np.int16)
+    return np.maximum(img.astype(np.int16) - erosionada, 0).astype(np.uint8)
+
+
+def gradiente(imagen):
+    """Gradiente morfológico: dilatación menos erosión.
+
+    Funciona con imágenes en escala de grises y con binarias representadas
+    como {0, 1} o {0, 255}.
+    """
+    img = _a_grises_2d(imagen)
+    dilatada = dilatacion_gris(img).astype(np.int16)
+    erosionada = erocion_gris(img).astype(np.int16)
+    return np.maximum(dilatada - erosionada, 0).astype(np.uint8)
+
+
+def apertura(imagen):
+    """Apertura morfológica genérica."""
+    return apertura_gris(imagen)
+
+
+def cierre(imagen):
+    """Cierre morfológico genérico."""
+    return cierre_gris(imagen)
+
+
+def borde_morfologico(imagen):
+    """Alias histórico del gradiente morfológico (por compatibilidad)."""
+    return gradiente(imagen)
+
+
+def mediana_3x3(imagen):
+    """Filtro de mediana 3x3. Los bordes se extienden repitiendo sus píxeles."""
+    img = _a_grises_2d(imagen)
+    pad = np.pad(img, ((1, 1), (1, 1)), mode="edge")
+    alto, ancho = img.shape
+    ventanas = [pad[i:i + alto, j:j + ancho] for i in range(3) for j in range(3)]
+    return np.median(np.stack(ventanas, axis=0), axis=0).astype(img.dtype)
